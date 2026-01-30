@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mass Tracker</title>
+<title>Mass Nutrition Tracker</title>
 
 <style>
 :root{
-  --bg:#0f0f0f; --card:#1c1c1e; --text:#fff; --green:#32d74b;
+  --bg:#0f0f0f;--card:#1c1c1e;--text:#fff;--green:#32d74b;--gray:#3a3a3c;
 }
 .light{
-  --bg:#f2f2f7; --card:#fff; --text:#000; --green:#34c759;
+  --bg:#f2f2f7;--card:#fff;--text:#000;--green:#34c759;--gray:#ccc;
 }
 body{
   margin:0;font-family:-apple-system,system-ui;
@@ -23,33 +23,30 @@ header{
 button{
   background:var(--green);border:none;
   padding:10px 14px;border-radius:10px;
-  font-size:14px;font-weight:600;
+  font-weight:600;
 }
 .card{
   background:var(--card);
-  margin:12px;padding:14px;border-radius:14px;
+  margin:12px;padding:14px;border-radius:16px;
 }
-.progress{
-  height:8px;background:#444;border-radius:8px;margin:6px 0;
-}
-.progress div{
-  height:100%;background:var(--green);border-radius:8px;
-}
+.progress{height:8px;background:var(--gray);border-radius:8px;}
+.progress div{height:100%;background:var(--green);border-radius:8px;}
 .grid{
-  display:grid;
-  grid-template-columns:repeat(7,1fr);
-  gap:6px;margin-top:10px;
+  display:grid;grid-template-columns:repeat(7,1fr);
+  gap:6px;margin-top:8px;
 }
 .day{
   width:100%;padding-top:100%;
-  background:#444;border-radius:6px;
+  background:var(--gray);border-radius:6px;
 }
-.day.active{background:var(--green);}
-textarea,input{
-  width:100%;background:#333;color:#fff;
-  border:none;border-radius:8px;padding:8px;
+.day.ok{background:var(--green);}
+input{
+  width:100%;padding:8px;border-radius:8px;
+  border:none;margin-top:6px;
 }
-.light textarea,.light input{background:#eee;color:#000;}
+.light input{background:#eee;}
+.month{margin-top:12px;}
+.small{font-size:13px;opacity:.7;}
 </style>
 </head>
 
@@ -61,73 +58,125 @@ textarea,input{
 
 <div class="card">
 <h3>🔥 Харчування (сьогодні)</h3>
+
 <p>Калорії: <b id="calLeft"></b></p>
 <div class="progress"><div id="calBar"></div></div>
+
 <p>Білок: <b id="protLeft"></b> г</p>
 <div class="progress"><div id="protBar"></div></div>
+
 <button onclick="addFood()">➕ Додати їжу</button>
+
+<p class="small">Ціль калорій</p>
+<input type="number" id="goalInput" onchange="setGoal()">
 </div>
 
 <div class="card">
-<h3>🏋️ Тренування</h3>
-<button onclick="toggleWorkout()">Тренування виконано ✅</button>
-<div class="grid" id="grid"></div>
+<h3>📊 Статистика харчування</h3>
+<div id="months"></div>
+<p class="small" id="streak"></p>
 </div>
 
 <div class="card">
-<h3>📋 План тренувань</h3>
-<textarea id="plan" rows="6"></textarea>
-<button onclick="savePlan()">Зберегти</button>
+<h3>⚖️ Вага</h3>
+<input type="number" step="0.1" placeholder="Вага сьогодні (кг)" id="weightInput">
+<button onclick="saveWeight()">Зберегти</button>
+<p id="weightInfo" class="small"></p>
 </div>
 
 <script>
-const goal={cal:3000,prot:130};
-let data=JSON.parse(localStorage.getItem("data"))||
-{cal:0,prot:0,workouts:{},plan:
-"Full Body (2–3р/тиждень)\n\nПрисідання 4x6-8\nЖим лежачи 4x6-8\nТяга 3x8\nПлечі 3x10\nПрес"};
+let data=JSON.parse(localStorage.getItem("massData"))||{
+  goalCal:3000,goalProt:130,
+  days:{},weights:{},theme:"dark"
+};
 
-function today(){return new Date().toISOString().slice(0,10);}
+const today=()=>new Date().toISOString().slice(0,10);
 
-function resetIfNewDay(){
-  if(data.day!==today()){
-    data.day=today();data.cal=0;data.prot=0;
-  }
-}
 function update(){
-  resetIfNewDay();
-  calLeft.textContent=goal.cal-data.cal;
-  protLeft.textContent=goal.prot-data.prot;
-  calBar.style.width=(data.cal/goal.cal*100)+"%";
-  protBar.style.width=(data.prot/goal.prot*100)+"%";
-  plan.value=data.plan;
-  drawGrid();
-  localStorage.setItem("data",JSON.stringify(data));
+  if(!data.days[today()]) data.days[today()]={cal:0,prot:0};
+  let d=data.days[today()];
+
+  calLeft.textContent=data.goalCal-d.cal;
+  protLeft.textContent=data.goalProt-d.prot;
+
+  calBar.style.width=Math.min(d.cal/data.goalCal*100,100)+"%";
+  protBar.style.width=Math.min(d.prot/data.goalProt*100,100)+"%";
+
+  goalInput.value=data.goalCal;
+
+  renderMonths();
+  renderWeight();
+
+  localStorage.setItem("massData",JSON.stringify(data));
 }
+
 function addFood(){
   let c=+prompt("Калорії?");
   let p=+prompt("Білок (г)?");
-  if(c) data.cal+=c;
-  if(p) data.prot+=p;
+  if(c) data.days[today()].cal+=c;
+  if(p) data.days[today()].prot+=p;
   update();
 }
-function toggleWorkout(){
-  let d=today();
-  data.workouts[d]=!data.workouts[d];
+
+function setGoal(){
+  data.goalCal=+goalInput.value||data.goalCal;
   update();
 }
-function drawGrid(){
-  grid.innerHTML="";
-  for(let i=27;i>=0;i--){
+
+function renderMonths(){
+  months.innerHTML="";
+  let now=new Date();
+
+  for(let m=0;m<3;m++){
+    let d=new Date(now.getFullYear(),now.getMonth()-m,1);
+    let key=d.getFullYear()+"-"+(d.getMonth()+1);
+    let wrap=document.createElement("div");
+    wrap.className="month";
+    wrap.innerHTML="<b>"+d.toLocaleString("uk",{month:"long"})+"</b>";
+
+    let g=document.createElement("div");
+    g.className="grid";
+
+    let daysInMonth=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+    let okCount=0;
+
+    for(let i=1;i<=daysInMonth;i++){
+      let date=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(i).padStart(2,"0")}`;
+      let div=document.createElement("div");
+      div.className="day";
+      if(data.days[date] && data.days[date].cal>=data.goalCal){
+        div.classList.add("ok");okCount++;
+      }
+      g.appendChild(div);
+    }
+    wrap.appendChild(g);
+    wrap.innerHTML+=`<div class="small">Виконано: ${okCount}/${daysInMonth}</div>`;
+    months.appendChild(wrap);
+  }
+
+  let streakCount=0;
+  for(let i=0;;i++){
     let d=new Date();d.setDate(d.getDate()-i);
     let id=d.toISOString().slice(0,10);
-    let div=document.createElement("div");
-    div.className="day"+(data.workouts[id]?" active":"");
-    grid.appendChild(div);
+    if(data.days[id] && data.days[id].cal>=data.goalCal) streakCount++;
+    else break;
   }
+  streak.textContent="🔥 Серія днів: "+streakCount;
 }
-function savePlan(){
-  data.plan=plan.value;update();
+
+function saveWeight(){
+  let w=+weightInput.value;
+  if(w){data.weights[today()]=w;weightInput.value="";update();}
 }
+
+function renderWeight(){
+  let dates=Object.keys(data.weights);
+  if(!dates.length){weightInfo.textContent="";return;}
+  let first=data.weights[dates[0]];
+  let last=data.weights[dates[dates.length-1]];
+  weightInfo.textContent=`Поточна: ${last} кг | Зміна: ${(last-first).toFixed(1)} кг`;
+}
+
 function toggleTheme(){
   document.body.classList.toggle("light");
 }
