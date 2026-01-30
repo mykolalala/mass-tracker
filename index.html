@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mass Tracker</title>
+
+<style>
+:root{
+  --bg:#0f0f0f; --card:#1c1c1e; --text:#fff; --green:#32d74b;
+}
+.light{
+  --bg:#f2f2f7; --card:#fff; --text:#000; --green:#34c759;
+}
+body{
+  margin:0;font-family:-apple-system,system-ui;
+  background:var(--bg);color:var(--text);
+}
+header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:16px;font-size:20px;font-weight:600;
+}
+button{
+  background:var(--green);border:none;
+  padding:10px 14px;border-radius:10px;
+  font-size:14px;font-weight:600;
+}
+.card{
+  background:var(--card);
+  margin:12px;padding:14px;border-radius:14px;
+}
+.progress{
+  height:8px;background:#444;border-radius:8px;margin:6px 0;
+}
+.progress div{
+  height:100%;background:var(--green);border-radius:8px;
+}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:6px;margin-top:10px;
+}
+.day{
+  width:100%;padding-top:100%;
+  background:#444;border-radius:6px;
+}
+.day.active{background:var(--green);}
+textarea,input{
+  width:100%;background:#333;color:#fff;
+  border:none;border-radius:8px;padding:8px;
+}
+.light textarea,.light input{background:#eee;color:#000;}
+</style>
+</head>
+
+<body>
+<header>
+  <span>Mass Tracker</span>
+  <button onclick="toggleTheme()">🌗</button>
+</header>
+
+<div class="card">
+<h3>🔥 Харчування (сьогодні)</h3>
+<p>Калорії: <b id="calLeft"></b></p>
+<div class="progress"><div id="calBar"></div></div>
+<p>Білок: <b id="protLeft"></b> г</p>
+<div class="progress"><div id="protBar"></div></div>
+<button onclick="addFood()">➕ Додати їжу</button>
+</div>
+
+<div class="card">
+<h3>🏋️ Тренування</h3>
+<button onclick="toggleWorkout()">Тренування виконано ✅</button>
+<div class="grid" id="grid"></div>
+</div>
+
+<div class="card">
+<h3>📋 План тренувань</h3>
+<textarea id="plan" rows="6"></textarea>
+<button onclick="savePlan()">Зберегти</button>
+</div>
+
+<script>
+const goal={cal:3000,prot:130};
+let data=JSON.parse(localStorage.getItem("data"))||
+{cal:0,prot:0,workouts:{},plan:
+"Full Body (2–3р/тиждень)\n\nПрисідання 4x6-8\nЖим лежачи 4x6-8\nТяга 3x8\nПлечі 3x10\nПрес"};
+
+function today(){return new Date().toISOString().slice(0,10);}
+
+function resetIfNewDay(){
+  if(data.day!==today()){
+    data.day=today();data.cal=0;data.prot=0;
+  }
+}
+function update(){
+  resetIfNewDay();
+  calLeft.textContent=goal.cal-data.cal;
+  protLeft.textContent=goal.prot-data.prot;
+  calBar.style.width=(data.cal/goal.cal*100)+"%";
+  protBar.style.width=(data.prot/goal.prot*100)+"%";
+  plan.value=data.plan;
+  drawGrid();
+  localStorage.setItem("data",JSON.stringify(data));
+}
+function addFood(){
+  let c=+prompt("Калорії?");
+  let p=+prompt("Білок (г)?");
+  if(c) data.cal+=c;
+  if(p) data.prot+=p;
+  update();
+}
+function toggleWorkout(){
+  let d=today();
+  data.workouts[d]=!data.workouts[d];
+  update();
+}
+function drawGrid(){
+  grid.innerHTML="";
+  for(let i=27;i>=0;i--){
+    let d=new Date();d.setDate(d.getDate()-i);
+    let id=d.toISOString().slice(0,10);
+    let div=document.createElement("div");
+    div.className="day"+(data.workouts[id]?" active":"");
+    grid.appendChild(div);
+  }
+}
+function savePlan(){
+  data.plan=plan.value;update();
+}
+function toggleTheme(){
+  document.body.classList.toggle("light");
+}
+update();
+</script>
+</body>
+</html>
